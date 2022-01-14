@@ -12,7 +12,7 @@ A thread is the unit of execution within a process. A process can have one or ma
 	A thread consumes few resources
 - Treatment by OS:\
 	Different processes are treated separately by OS\
-	All peer threads are treated as a single task by OS\
+	All peer threads are treated as a single task by OS
 - Memory & Sharing:\
 	Treads share memory and share data with each other\
 	Processes are mostly isolated
