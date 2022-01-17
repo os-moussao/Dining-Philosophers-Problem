@@ -4,8 +4,10 @@
 #include <unistd.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <string.h>
 
-#define TH 4
+#define TH 5
 
 sem_t	*sem;
 
@@ -25,7 +27,18 @@ int main()
 {
 	pthread_t th[TH];
 
-	sem = sem_open("/sm", O_CREAT, 0777, 3);
+	if (sem_unlink("/semm") == -1)
+	{
+		perror("Error 1");
+		return 1;
+	}
+	// unsigned int perm = S_IRWXU | S_IRWXG | S_IRWXO;
+	sem = sem_open("/semm", O_CREAT | O_EXCL, S_IRWXU, 2);
+	if (sem == SEM_FAILED)
+	{
+		perror("Error 2");
+		return 1;
+	}
 	for (int i=0; i < TH; i++) {
 		int *a = malloc(sizeof(int));
 		*a = i;
