@@ -10,6 +10,7 @@
 #define TIME_TO_EAT		200
 #define TIME_TO_SLEEP	200
 #define TIME_TO_DIE		500
+#define USEC(ms)		ms * 1000
 
 typedef struct timeval t_timeval;
 
@@ -22,7 +23,7 @@ typedef struct s_philo
 	pthread_t		check;
 	pthread_mutex_t	*forks;
 	unsigned long	time_start;
-	unsigned long	last_meal;
+	unsigned long	last_meal[PHILOS];
 }				t_philo;
 
 
@@ -63,16 +64,15 @@ void	*eat(void *ptr)
 	t_timeval	sec;
 
 	philo = (t_philo *)ptr;
-	if (philo->id & 1) {
-		sleep(TIME_TO_EAT);
+	if (!(philo->id & 1)) {
+		usleep(USEC(TIME_TO_EAT));
 	}
-
-	// pthread_create(&(philo->check), NULL, check_health, philo);
-	// pthread_detach(philo->check);
 
 	while (1)
 	{
+		//
 		// hold ith and (i+1)th forks
+		//
 		pthread_mutex_lock(&(philo->forks[philo->id]));
 		out("has taken a fork", philo->id, philo->time_start);
 		pthread_mutex_lock(&(philo->forks[(philo->id + 1) % PHILOS]));
@@ -80,16 +80,18 @@ void	*eat(void *ptr)
 
 		// EAT
 		out("is eating", philo->id, philo->time_start);
-		usleep(TIME_TO_EAT * 1000);
-		philo->last_meal = time_ms(philo->time_start);
+		usleep(USEC(TIME_TO_EAT));
+		philo->last_meal[philo->id] = time_ms(philo->time_start);
 
+		//
 		// put down ith and (i+1)th forks
+		//
 		pthread_mutex_unlock(&(philo->forks[philo->id]));
 		pthread_mutex_unlock(&(philo->forks[(philo->id + 1) % PHILOS]));
 
 		// sleep
 		out("is sleeping", philo->id, philo->time_start);
-		usleep(TIME_TO_SLEEP * 1000);
+		usleep(USEC(TIME_TO_SLEEP));
 
 		// think
 		out("is thinking", philo->id, philo->time_start);
@@ -115,7 +117,7 @@ int main()
 		philos[i].forks = forks;
 		philos[i].id = i;
 		philos[i].time_start = timestart;
-		philos[i].last_meal = 0;
+		philos[i].last_meal[i] = 0;
 	}
 
 	// open threads for philosophers
@@ -130,7 +132,7 @@ int main()
 	int stop = 0;
 	while (!stop) {
 		for (int i = 0; i < PHILOS; i++) {
-			if (time_ms(timestart) - philos[i].last_meal > TIME_TO_DIE) {
+			if (time_ms(timestart) - philos[i].last_meal[i] > TIME_TO_DIE) {
 				out("has died", i, timestart);
 				stop = 1;
 				break ;
