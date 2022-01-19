@@ -6,7 +6,7 @@
 /*   By: omoussao <omoussao@student.1337.ma>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/19 18:45:17 by omoussao          #+#    #+#             */
-/*   Updated: 2022/01/19 20:42:07 by omoussao         ###   ########.fr       */
+/*   Updated: 2022/01/19 21:37:03 by omoussao         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -45,6 +45,7 @@ typedef struct s_philo
 	pthread_mutex_t	*fork_left;
 	pthread_mutex_t	*fork_right;
 	unsigned long	last_meal;
+	int				meals_eaten;
 	t_data			pdata;
 }				t_philo;
 
@@ -125,7 +126,8 @@ void	*routine(void *ptr)
 		out("has taken a fork", philo);
 		out("is eating", philo);
 		usleep(USEC(philo->pdata.time_to_eat));
-		philo->last_meal = time_ms(philo->pdata.pstart);
+		philo->last_meal = get_ms();
+		(philo->meals_eaten)++;
 		pthread_mutex_unlock(philo->fork_right);
 		pthread_mutex_unlock(philo->fork_left);
 		out("is sleeping", philo);
@@ -135,7 +137,7 @@ void	*routine(void *ptr)
 	return ptr;
 }
 
-void	parse(int ac, char **av, t_philo **philos, pthread_mutex_t **forks)
+t_data	parse(int ac, char **av, t_philo **philos, pthread_mutex_t **forks)
 {
 	t_data	pdata;
 	int		i;
@@ -149,15 +151,40 @@ void	parse(int ac, char **av, t_philo **philos, pthread_mutex_t **forks)
 		pdata.max_meals = ft_atoi(av[4]);
 	*philos = (t_philo *)malloc(pdata.N * sizeof(t_philo));
 	*forks = (pthread_mutex_t *)malloc(pdata.N * sizeof(pthread_mutex_t));
-	pthread_mutex_init(&pdata.print_m, NULL);
+	pthread_mutex_init(pdata.print_m, NULL);
 	i = -1;
 	while (++i)
 	{
 		pthread_mutex_init(*forks + i, NULL);
 		(*philos)[i].fork_right = &(*forks)[i];
 		(*philos)[i].fork_left = &(*forks)[(i + 1) % pdata.N];
-		(*philos)[i].pdata = pdata;
 		(*philos)[i].id = i;
+		(*philos)[i].meals_eaten = 0;
+	}
+	return (pdata);
+}
+
+void	check(t_data pdata, t_philo *philos)
+{
+	int	i;
+	int	meals;
+
+	while (1)
+	{
+		meals = 0;
+		i = -1;
+		while (++i < pdata.N)
+		{
+			if (get_ms() > pdata.time_to_die + get_ms())
+			{
+				out("has died", &philos[i]);
+				pthread_mutex_lock(pdata.print_m);
+				return ;
+			}
+			meals += philos[i].meals_eaten;
+		}
+		if (pdata.max_meals != -1 && meals >= pdata.max_meals * pdata.N)
+			return ;
 	}
 }
 
@@ -166,6 +193,7 @@ int	main(int ac, char **av)
 	t_data			pdata;
 	t_philo			*philos;
 	pthread_mutex_t	*forks;
+	int				i;
 
 	if (ac < 5 || ac > 6)
 	{
@@ -173,32 +201,20 @@ int	main(int ac, char **av)
 		return (1);
 	}
 	pdata = parse(ac - 1, av + 1, &philos, &forks);
-	forks = malloc(PHILOS * sizeof(pthread_mutex_t));
-
-	// open threads for philosophers
-	for (int i = 0; i < PHILOS; i++) {
-		pthread_create(&philos[i].action, NULL, eat, &philos[i]);
-		pthread_detach(philos[i].action);
+	pdata.pstart = get_ms();
+	i = -1;
+	while (++i < pdata.N)
+	{
+		philos[i].pdata = pdata;
+		philos[i].last_meal = get_ms();
+		pthread_create(&(philos[i].th), NULL, routine, &philos[i]);
+		pthread_detach(philos[i].th);
 	}
-
-	/**
-	 * CHECK IF SOME PHILOSOPHER IS DYING
-	*/
-	int stop = 0;
-	while (!stop) {
-		for (int i = 0; i < PHILOS; i++) {
-			if (time_ms(timestart) > TIME_TO_DIE + philos[i].last_meal[i]) {
-				out("has died", i, timestart);
-				pthread_mutex_lock(&print_m);
-				printf("Difference of time %lu\n", time_ms(timestart) - philos[i].last_meal[i]);
-				stop = 1;
-				break ;
-			}
-		}
-	}
-
-	for (int i = 0; i < PHILOS; i++)
+	check(pdata, philos);
+	i = -1;
+	while (++i < pdata.N)
 		pthread_mutex_destroy(&forks[i]);
-	pthread_mutex_destroy(&print_m);
+	pthread_mutex_destroy(pdata.print_m);
 	free(forks);
+	free(philos);
 }
