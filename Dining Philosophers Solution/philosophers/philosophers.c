@@ -6,7 +6,7 @@
 /*   By: omoussao <omoussao@student.1337.ma>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/19 18:45:17 by omoussao          #+#    #+#             */
-/*   Updated: 2022/01/19 20:11:46 by omoussao         ###   ########.fr       */
+/*   Updated: 2022/01/19 20:42:07 by omoussao         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,25 +24,28 @@
 // #define TIME_TO_DIE		411
 
 #define USEC(ms)	ms * 1000
-#define LEFT(i, N)	(i + 1) % N
 
 typedef struct timeval t_timeval;
+
+typedef struct s_data
+{
+	int				N;
+	unsigned long	pstart;
+	int				max_meals;
+	useconds_t		time_to_eat;
+	useconds_t		time_to_sleep;
+	useconds_t		time_to_die;
+	pthread_mutex_t	*print_m;
+}				t_data;
 
 typedef struct s_philo
 {
 	int				id;
-	int				N;
 	pthread_t		th;
 	pthread_mutex_t	*fork_left;
 	pthread_mutex_t	*fork_right;
-	pthread_mutex_t	*print_m;
 	unsigned long	last_meal;
-	unsigned long	pstart;
-	useconds_t		time_to_eat;
-	useconds_t		time_to_sleep;
-	useconds_t		time_to_die;
-	int				max_meals;
-	
+	t_data			pdata;
 }				t_philo;
 
 static int	is_w_space(char c)
@@ -91,15 +94,15 @@ unsigned long	time_ms(unsigned long start)
  */
 void	out(char *action, t_philo *philo)
 {
-	pthread_mutex_lock(philo->print_m);
-	printf("%lu %d %s\n", time_ms(philo->pstart), philo->id + 1, action);
-	pthread_mutex_unlock(philo->print_m);
+	pthread_mutex_lock(philo->pdata.print_m);
+	printf("%lu %d %s\n", time_ms(philo->pdata.pstart), philo->id + 1, action);
+	pthread_mutex_unlock(philo->pdata.print_m);
 }
 
 /**
  * THIS IS THE MAIN ROUTINE OF EVERY PHILOSOPHER
  * 
- * ONLY AT THE BEGINING IF THE ID IS EVEN IT WAITS (AVOIDING DEADLOCK)
+ * ONLY AT THE BEGINING IF THE ID IS ODD IT WAITS (AVOIDING DEADLOCK)
  * 
  * TAKE THE FORKS ON THE LEFT AND ON THE RIGHT
  * EAT time_to_eat milliseconds
@@ -112,8 +115,8 @@ void	*routine(void *ptr)
 	t_philo		*philo;
 
 	philo = (t_philo *)ptr;
-	if (!(philo->id & 1))
-		usleep(USEC(philo->time_to_eat));
+	if (philo->id & 1)
+		usleep(USEC(philo->pdata.time_to_eat));
 	while (1)
 	{
 		pthread_mutex_lock(philo->fork_right);
@@ -121,12 +124,12 @@ void	*routine(void *ptr)
 		pthread_mutex_lock(philo->fork_left);
 		out("has taken a fork", philo);
 		out("is eating", philo);
-		usleep(USEC(philo->time_to_eat));
-		philo->last_meal = time_ms(philo->pstart);
+		usleep(USEC(philo->pdata.time_to_eat));
+		philo->last_meal = time_ms(philo->pdata.pstart);
 		pthread_mutex_unlock(philo->fork_right);
 		pthread_mutex_unlock(philo->fork_left);
 		out("is sleeping", philo);
-		usleep(USEC(philo->time_to_sleep));
+		usleep(USEC(philo->pdata.time_to_sleep));
 		out("is thinking", philo);
 	}
 	return ptr;
@@ -134,50 +137,43 @@ void	*routine(void *ptr)
 
 void	parse(int ac, char **av, t_philo **philos, pthread_mutex_t **forks)
 {
-	int			N;
-	int			max_meals;
-	useconds_t	time_to_eat;
-	useconds_t	time_to_sleep;
-	useconds_t	time_to_die;
-
-	N = ft_atoi(av[0]);
-	time_to_die = (useconds_t)ft_atoi(av[1]);
-	time_to_eat = (useconds_t)ft_atoi(av[2]);
-	time_to_sleep = (useconds_t)ft_atoi(av[3]);
-	max_meals = -1;
-	if (ac == 5)
-		max_meals = ft_atoi(av[4]);
-	*philos = (t_philo *)malloc(N * sizeof(t_philo));
-	*forks = (pthread_mutex_t *)malloc(N * sizeof(pthread_mutex_t));
+	t_data	pdata;
+	int		i;
 	
+	pdata.N = ft_atoi(av[0]);
+	pdata.time_to_die = (useconds_t)ft_atoi(av[1]);
+	pdata.time_to_eat = (useconds_t)ft_atoi(av[2]);
+	pdata.time_to_sleep = (useconds_t)ft_atoi(av[3]);
+	pdata.max_meals = -1;
+	if (ac == 5)
+		pdata.max_meals = ft_atoi(av[4]);
+	*philos = (t_philo *)malloc(pdata.N * sizeof(t_philo));
+	*forks = (pthread_mutex_t *)malloc(pdata.N * sizeof(pthread_mutex_t));
+	pthread_mutex_init(&pdata.print_m, NULL);
+	i = -1;
+	while (++i)
+	{
+		pthread_mutex_init(*forks + i, NULL);
+		(*philos)[i].fork_right = &(*forks)[i];
+		(*philos)[i].fork_left = &(*forks)[(i + 1) % pdata.N];
+		(*philos)[i].pdata = pdata;
+		(*philos)[i].id = i;
+	}
 }
 
 int	main(int ac, char **av)
 {
+	t_data			pdata;
 	t_philo			*philos;
 	pthread_mutex_t	*forks;
-	unsigned long	timestart;
 
 	if (ac < 5 || ac > 6)
 	{
 		write(2, "Bad arguments\n", 14);
 		return (1);
 	}
-	parse(ac - 1, av + 1, &philos, &forks);
-	N = ft_atoi(av[1]);
-	philos = (t_philo *)malloc(N * sizeof(t_philo));
-	forks = (pthread_mutex_t *)malloc(N * sizeof(pthread_mutex_t));
-
-	timestart = get_ms();
-	pthread_mutex_init(&print_m, NULL);
+	pdata = parse(ac - 1, av + 1, &philos, &forks);
 	forks = malloc(PHILOS * sizeof(pthread_mutex_t));
-	for (int i = 0; i < PHILOS; i++) {
-		pthread_mutex_init(&forks[i], NULL);
-		philos[i].forks = forks;
-		philos[i].id = i;
-		philos[i].time_start = timestart;
-		philos[i].last_meal[i] = 0;
-	}
 
 	// open threads for philosophers
 	for (int i = 0; i < PHILOS; i++) {
