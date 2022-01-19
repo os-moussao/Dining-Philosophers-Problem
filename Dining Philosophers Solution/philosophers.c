@@ -9,7 +9,7 @@
 #define PHILOS			5
 #define TIME_TO_EAT		200
 #define TIME_TO_SLEEP	200
-#define TIME_TO_DIE		400
+#define TIME_TO_DIE		500
 
 typedef struct timeval t_timeval;
 
@@ -32,16 +32,16 @@ pthread_mutex_t	print_m;
  * GET TIME IN MILISECONDS
  */
 
-unsigned long	time_now(void)
+unsigned long	get_ms(void)
 {
 	t_timeval	now;
 	gettimeofday(&now, NULL);
 	return (now.tv_sec * 1000 + now.tv_usec / 1000);
 }
 
-unsigned long	get_ms(unsigned long start)
+unsigned long	time_ms(unsigned long start)
 {
-	return (time_now() - start);
+	return (get_ms() - start);
 }
 
 /**
@@ -50,29 +50,8 @@ unsigned long	get_ms(unsigned long start)
 void	out(char *action, int i, unsigned long start)
 {
 	pthread_mutex_lock(&print_m);
-	printf("Philosopher #%d %s at %lums\n", i, action, get_ms(start));
+	printf("Philosopher #%d %s at %lums\n", i, action, time_ms(start));
 	pthread_mutex_unlock(&print_m);
-}
-
-/**
- * CHECK IF IS DYING
- */
-void	*check_health(void *ptr)
-{
-	t_philo	*philo;
-
-	philo = (t_philo *)ptr;
-	// while (philo->time_to_die);
-	// stop = 1;
-	// return ptr;
-	while (1)
-	{
-		if (time_now() - philo->last_meal >= TIME_TO_DIE)
-			break ;
-	}
-	out("has died", philo->id, philo->time_start);
-	stop = 1;
-	return (ptr);
 }
 
 /**
@@ -88,8 +67,8 @@ void	*eat(void *ptr)
 		sleep(TIME_TO_EAT);
 	}
 
-	pthread_create(&(philo->check), NULL, check_health, philo);
-	pthread_detach(philo->check);
+	// pthread_create(&(philo->check), NULL, check_health, philo);
+	// pthread_detach(philo->check);
 
 	while (1)
 	{
@@ -102,7 +81,7 @@ void	*eat(void *ptr)
 		// EAT
 		out("is eating", philo->id, philo->time_start);
 		usleep(TIME_TO_EAT * 1000);
-		philo->last_meal = time_now();
+		philo->last_meal = time_ms(philo->time_start);
 
 		// put down ith and (i+1)th forks
 		pthread_mutex_unlock(&(philo->forks[philo->id]));
@@ -128,7 +107,7 @@ int main()
 	pthread_mutex_t	*forks;
 	unsigned long	timestart;
 
-	timestart = time_now();
+	timestart = get_ms();
 	pthread_mutex_init(&print_m, NULL);
 	forks = malloc(PHILOS * sizeof(pthread_mutex_t));
 	for (int i = 0; i < PHILOS; i++) {
@@ -145,8 +124,19 @@ int main()
 		pthread_detach(philos[i].action);
 	}
 
-	// wait until stop = 1
-	while (!stop);
+	/**
+	 * CHECK IF SOME PHILOSOPHER IS DYING
+	*/
+	int stop = 0;
+	while (!stop) {
+		for (int i = 0; i < PHILOS; i++) {
+			if (time_ms(timestart) - philos[i].last_meal > TIME_TO_DIE) {
+				out("has died", i, timestart);
+				stop = 1;
+				break ;
+			}
+		}
+	}
 
 	for (int i = 0; i < PHILOS; i++)
 		pthread_mutex_destroy(&forks[i]);
