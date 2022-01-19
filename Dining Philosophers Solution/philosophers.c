@@ -9,7 +9,7 @@
 #define PHILOS			5
 #define TIME_TO_EAT		200
 #define TIME_TO_SLEEP	200
-#define TIME_TO_DIE		500
+#define TIME_TO_DIE		650
 #define USEC(ms)		ms * 1000
 
 typedef struct timeval t_timeval;
@@ -132,8 +132,9 @@ int main()
 	int stop = 0;
 	while (!stop) {
 		for (int i = 0; i < PHILOS; i++) {
-			if (time_ms(timestart) - philos[i].last_meal[i] > TIME_TO_DIE) {
+			if (time_ms(timestart) > TIME_TO_DIE + philos[i].last_meal[i]) {
 				out("has died", i, timestart);
+				printf("Difference of time %lu\n", time_ms(timestart) - philos[i].last_meal[i]);
 				stop = 1;
 				break ;
 			}
