@@ -6,15 +6,13 @@
 #include <semaphore.h>
 #include <sys/time.h>
 
-#define PHILOS			5
+#define PHILOS			4
 #define TIME_TO_EAT		200
 #define TIME_TO_SLEEP	200
-#define TIME_TO_DIE		650
+#define TIME_TO_DIE		411
 #define USEC(ms)		ms * 1000
 
 typedef struct timeval t_timeval;
-
-int	stop = 0;
 
 typedef struct s_philo
 {
@@ -61,7 +59,6 @@ void	out(char *action, int i, unsigned long start)
 void	*eat(void *ptr)
 {
 	t_philo		*philo;
-	t_timeval	sec;
 
 	philo = (t_philo *)ptr;
 	if (!(philo->id & 1)) {
@@ -134,6 +131,7 @@ int main()
 		for (int i = 0; i < PHILOS; i++) {
 			if (time_ms(timestart) > TIME_TO_DIE + philos[i].last_meal[i]) {
 				out("has died", i, timestart);
+				pthread_mutex_lock(&print_m);
 				printf("Difference of time %lu\n", time_ms(timestart) - philos[i].last_meal[i]);
 				stop = 1;
 				break ;
