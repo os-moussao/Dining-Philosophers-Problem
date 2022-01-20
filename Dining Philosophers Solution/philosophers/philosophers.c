@@ -6,7 +6,7 @@
 /*   By: omoussao <omoussao@student.1337.ma>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/19 18:45:17 by omoussao          #+#    #+#             */
-/*   Updated: 2022/01/19 21:37:03 by omoussao         ###   ########.fr       */
+/*   Updated: 2022/01/20 17:22:03 by omoussao         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,6 +32,7 @@ typedef struct s_data
 	int				N;
 	unsigned long	pstart;
 	int				max_meals;
+	int				meals_eaten;
 	useconds_t		time_to_eat;
 	useconds_t		time_to_sleep;
 	useconds_t		time_to_die;
@@ -45,8 +46,7 @@ typedef struct s_philo
 	pthread_mutex_t	*fork_left;
 	pthread_mutex_t	*fork_right;
 	unsigned long	last_meal;
-	int				meals_eaten;
-	t_data			pdata;
+	t_data			*pdata;
 }				t_philo;
 
 static int	is_w_space(char c)
@@ -95,9 +95,9 @@ unsigned long	time_ms(unsigned long start)
  */
 void	out(char *action, t_philo *philo)
 {
-	pthread_mutex_lock(philo->pdata.print_m);
-	printf("%lu %d %s\n", time_ms(philo->pdata.pstart), philo->id + 1, action);
-	pthread_mutex_unlock(philo->pdata.print_m);
+	pthread_mutex_lock(philo->pdata->print_m);
+	printf("%lu %d %s\n", time_ms(philo->pdata->pstart), philo->id + 1, action);
+	pthread_mutex_unlock(philo->pdata->print_m);
 }
 
 /**
@@ -117,7 +117,7 @@ void	*routine(void *ptr)
 
 	philo = (t_philo *)ptr;
 	if (philo->id & 1)
-		usleep(USEC(philo->pdata.time_to_eat));
+		usleep(USEC(philo->pdata->time_to_eat));
 	while (1)
 	{
 		pthread_mutex_lock(philo->fork_right);
@@ -125,13 +125,13 @@ void	*routine(void *ptr)
 		pthread_mutex_lock(philo->fork_left);
 		out("has taken a fork", philo);
 		out("is eating", philo);
-		usleep(USEC(philo->pdata.time_to_eat));
+		usleep(USEC(philo->pdata->time_to_eat));
 		philo->last_meal = get_ms();
-		(philo->meals_eaten)++;
+		(philo->pdata->meals_eaten)++;
 		pthread_mutex_unlock(philo->fork_right);
 		pthread_mutex_unlock(philo->fork_left);
 		out("is sleeping", philo);
-		usleep(USEC(philo->pdata.time_to_sleep));
+		usleep(USEC(philo->pdata->time_to_sleep));
 		out("is thinking", philo);
 	}
 	return ptr;
@@ -151,15 +151,15 @@ t_data	parse(int ac, char **av, t_philo **philos, pthread_mutex_t **forks)
 		pdata.max_meals = ft_atoi(av[4]);
 	*philos = (t_philo *)malloc(pdata.N * sizeof(t_philo));
 	*forks = (pthread_mutex_t *)malloc(pdata.N * sizeof(pthread_mutex_t));
+	pdata.meals_eaten = 0;
 	pthread_mutex_init(pdata.print_m, NULL);
 	i = -1;
-	while (++i)
+	while (++i < pdata.N)
 	{
 		pthread_mutex_init(*forks + i, NULL);
-		(*philos)[i].fork_right = &(*forks)[i];
-		(*philos)[i].fork_left = &(*forks)[(i + 1) % pdata.N];
+		(*philos)[i].fork_right = *forks + i;
+		(*philos)[i].fork_left = *forks + (i + 1) % pdata.N;
 		(*philos)[i].id = i;
-		(*philos)[i].meals_eaten = 0;
 	}
 	return (pdata);
 }
@@ -167,11 +167,9 @@ t_data	parse(int ac, char **av, t_philo **philos, pthread_mutex_t **forks)
 void	check(t_data pdata, t_philo *philos)
 {
 	int	i;
-	int	meals;
 
 	while (1)
 	{
-		meals = 0;
 		i = -1;
 		while (++i < pdata.N)
 		{
@@ -181,7 +179,6 @@ void	check(t_data pdata, t_philo *philos)
 				pthread_mutex_lock(pdata.print_m);
 				return ;
 			}
-			meals += philos[i].meals_eaten;
 		}
 		if (pdata.max_meals != -1 && meals >= pdata.max_meals * pdata.N)
 			return ;
@@ -205,8 +202,7 @@ int	main(int ac, char **av)
 	i = -1;
 	while (++i < pdata.N)
 	{
-		philos[i].pdata = pdata;
-		philos[i].last_meal = get_ms();
+		philos[i].pdata = &pdata;
 		pthread_create(&(philos[i].th), NULL, routine, &philos[i]);
 		pthread_detach(philos[i].th);
 	}
