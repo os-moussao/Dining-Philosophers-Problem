@@ -6,7 +6,7 @@
 /*   By: omoussao <omoussao@student.1337.ma>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/19 18:45:17 by omoussao          #+#    #+#             */
-/*   Updated: 2022/01/21 16:25:10 by omoussao         ###   ########.fr       */
+/*   Updated: 2022/01/21 16:45:51 by omoussao         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -36,7 +36,7 @@ typedef struct s_data
 	useconds_t		time_to_eat;
 	useconds_t		time_to_sleep;
 	useconds_t		time_to_die;
-	pthread_mutex_t	*print_m;
+	pthread_mutex_t	print_m;
 }				t_data;
 
 typedef struct s_philo
@@ -95,9 +95,9 @@ unsigned long	time_ms(unsigned long start)
  */
 void	out(char *action, t_philo *philo)
 {
-	pthread_mutex_lock(philo->pdata->print_m);
+	pthread_mutex_lock(&(philo->pdata->print_m));
 	printf("%lu %d %s\n", time_ms(philo->pdata->pstart), philo->id + 1, action);
-	pthread_mutex_unlock(philo->pdata->print_m);
+	pthread_mutex_unlock(&(philo->pdata->print_m));
 }
 
 /**
@@ -152,7 +152,7 @@ t_data	parse(int ac, char **av, t_philo **philos, pthread_mutex_t **forks)
 	*philos = (t_philo *)malloc(pdata.N * sizeof(t_philo));
 	*forks = (pthread_mutex_t *)malloc(pdata.N * sizeof(pthread_mutex_t));
 	pdata.meals_eaten = 0;
-	pthread_mutex_init(pdata.print_m, NULL);
+	pthread_mutex_init(&(pdata.print_m), NULL);
 	i = -1;
 	while (++i < pdata.N)
 	{
@@ -177,7 +177,7 @@ void	check(t_data pdata, t_philo *philos)
 			if (get_ms() > pdata.time_to_die + get_ms())
 			{
 				out("has died", &philos[i]);
-				pthread_mutex_lock(pdata.print_m);
+				pthread_mutex_lock(&(pdata.print_m));
 				return ;
 			}
 		}
@@ -211,7 +211,7 @@ int	main(int ac, char **av)
 	i = -1;
 	while (++i < pdata.N)
 		pthread_mutex_destroy(&forks[i]);
-	pthread_mutex_destroy(pdata.print_m);
+	pthread_mutex_destroy(&(pdata.print_m));
 	free(forks);
 	free(philos);
 }
