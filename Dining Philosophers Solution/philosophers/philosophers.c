@@ -6,7 +6,7 @@
 /*   By: omoussao <omoussao@student.1337.ma>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/19 18:45:17 by omoussao          #+#    #+#             */
-/*   Updated: 2022/01/21 16:45:51 by omoussao         ###   ########.fr       */
+/*   Updated: 2022/01/21 16:55:27 by omoussao         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -116,6 +116,7 @@ void	*routine(void *ptr)
 	t_philo		*philo;
 
 	philo = (t_philo *)ptr;
+	philo->last_meal = get_ms();
 	if (philo->id & 1)
 		usleep(USEC(philo->pdata->time_to_eat));
 	while (1)
@@ -174,7 +175,7 @@ void	check(t_data pdata, t_philo *philos)
 		i = -1;
 		while (++i < pdata.N)
 		{
-			if (get_ms() > pdata.time_to_die + get_ms())
+			if (get_ms() > pdata.time_to_die + philos[i].last_meal)
 			{
 				out("has died", &philos[i]);
 				pthread_mutex_lock(&(pdata.print_m));
