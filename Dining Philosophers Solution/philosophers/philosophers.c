@@ -6,7 +6,7 @@
 /*   By: omoussao <omoussao@student.1337.ma>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/01/19 18:45:17 by omoussao          #+#    #+#             */
-/*   Updated: 2022/01/20 17:22:03 by omoussao         ###   ########.fr       */
+/*   Updated: 2022/01/21 16:25:10 by omoussao         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,7 +23,7 @@
 // #define TIME_TO_SLEEP	200
 // #define TIME_TO_DIE		411
 
-#define USEC(ms)	ms * 1000
+#define USEC(ms)	(ms) * 1000
 
 typedef struct timeval t_timeval;
 
@@ -168,6 +168,7 @@ void	check(t_data pdata, t_philo *philos)
 {
 	int	i;
 
+	usleep(USEC(pdata.time_to_die / 2));
 	while (1)
 	{
 		i = -1;
@@ -180,7 +181,7 @@ void	check(t_data pdata, t_philo *philos)
 				return ;
 			}
 		}
-		if (pdata.max_meals != -1 && meals >= pdata.max_meals * pdata.N)
+		if (pdata.max_meals != -1 && pdata.meals_eaten >= pdata.max_meals)
 			return ;
 	}
 }
