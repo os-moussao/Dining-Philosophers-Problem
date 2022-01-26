@@ -18,11 +18,6 @@
 #include <semaphore.h>
 #include <sys/time.h>
 
-// #define PHILOS			4
-// #define TIME_TO_EAT		200
-// #define TIME_TO_SLEEP	200
-// #define TIME_TO_DIE		411
-
 #define USEC(ms)	(ms) * 1000
 
 typedef struct timeval t_timeval;
@@ -30,9 +25,9 @@ typedef struct timeval t_timeval;
 typedef struct s_data
 {
 	int				N;
+	int				finished;
 	unsigned long	pstart;
 	int				max_meals;
-	int				meals_eaten;
 	useconds_t		time_to_eat;
 	useconds_t		time_to_sleep;
 	useconds_t		time_to_die;
@@ -46,6 +41,7 @@ typedef struct s_philo
 	pthread_mutex_t	*fork_left;
 	pthread_mutex_t	*fork_right;
 	unsigned long	last_meal;
+	int				meals_eaten;
 	t_data			*pdata;
 }				t_philo;
 
@@ -128,9 +124,14 @@ void	*routine(void *ptr)
 		out("is eating", philo);
 		usleep(USEC(philo->pdata->time_to_eat));
 		philo->last_meal = get_ms();
-		(philo->pdata->meals_eaten)++;
+		(philo->meals_eaten)++;
 		pthread_mutex_unlock(philo->fork_right);
 		pthread_mutex_unlock(philo->fork_left);
+		if (philo->pdata->max_meals != -1 && philo->meals_eaten >= philo->pdata->max_meals)
+		{
+			(philo->pdata->finished)++;
+			return ptr;
+		}
 		out("is sleeping", philo);
 		usleep(USEC(philo->pdata->time_to_sleep));
 		out("is thinking", philo);
@@ -147,17 +148,18 @@ t_data	parse(int ac, char **av, t_philo **philos, pthread_mutex_t **forks)
 	pdata.time_to_die = (useconds_t)ft_atoi(av[1]);
 	pdata.time_to_eat = (useconds_t)ft_atoi(av[2]);
 	pdata.time_to_sleep = (useconds_t)ft_atoi(av[3]);
+	pdata.finished = 0;
 	pdata.max_meals = -1;
 	if (ac == 5)
 		pdata.max_meals = ft_atoi(av[4]);
 	*philos = (t_philo *)malloc(pdata.N * sizeof(t_philo));
 	*forks = (pthread_mutex_t *)malloc(pdata.N * sizeof(pthread_mutex_t));
-	pdata.meals_eaten = 0;
 	pthread_mutex_init(&(pdata.print_m), NULL);
 	i = -1;
 	while (++i < pdata.N)
 	{
 		pthread_mutex_init(*forks + i, NULL);
+		(*philos)[i].meals_eaten = 0;
 		(*philos)[i].fork_right = *forks + i;
 		(*philos)[i].fork_left = *forks + (i + 1) % pdata.N;
 		(*philos)[i].id = i;
@@ -165,25 +167,29 @@ t_data	parse(int ac, char **av, t_philo **philos, pthread_mutex_t **forks)
 	return (pdata);
 }
 
-void	check(t_data pdata, t_philo *philos)
+void	check(t_data *pdata, t_philo *philos)
 {
 	int	i;
 
-	usleep(USEC(pdata.time_to_die / 2));
+	usleep(USEC(pdata->time_to_die / 2));
 	while (1)
 	{
+		if (pdata->finished == pdata->N)
+			return ;
 		i = -1;
-		while (++i < pdata.N)
+		while (++i < pdata->N)
 		{
-			if (get_ms() > pdata.time_to_die + philos[i].last_meal)
+			if (pdata->max_meals != -1
+				&& philos[i].meals_eaten >= pdata->max_meals)
+				continue ;
+			if (get_ms() > pdata->time_to_die + philos[i].last_meal)
 			{
 				out("has died", &philos[i]);
-				pthread_mutex_lock(&(pdata.print_m));
+				exit(1);
+				pthread_mutex_lock(&(pdata->print_m));
 				return ;
 			}
 		}
-		if (pdata.max_meals != -1 && pdata.meals_eaten >= pdata.max_meals)
-			return ;
 	}
 }
 
@@ -208,7 +214,7 @@ int	main(int ac, char **av)
 		pthread_create(&(philos[i].th), NULL, routine, &philos[i]);
 		pthread_detach(philos[i].th);
 	}
-	check(pdata, philos);
+	check(&pdata, philos);
 	i = -1;
 	while (++i < pdata.N)
 		pthread_mutex_destroy(&forks[i]);
